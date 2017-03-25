@@ -85,7 +85,7 @@ def preprocess_and_save_data(cifar10_dataset_folder_path, normalize, one_hot_enc
             one_hot_encode,
             features[:-validation_count],
             labels[:-validation_count],
-            'preprocess_batch_' + str(batch_i) + '.p')
+            '.\cifar-10-batches-py\preprocess_batch_' + str(batch_i) + '.p')
 
         # Use a portion of training batch for validation
         valid_features.extend(features[-validation_count:])
@@ -128,7 +128,7 @@ def load_preprocess_training_batch(batch_id, batch_size):
     """
     Load the Preprocessed Training data and return them in batches of <batch_size> or less
     """
-    filename = 'preprocess_batch_' + str(batch_id) + '.p'
+    filename = '.\cifar-10-batches-py\preprocess_batch_' + str(batch_id) + '.p'
     features, labels = pickle.load(open(filename, mode='rb'))
 
     # Return the training data in batches of size <batch_size> or less
