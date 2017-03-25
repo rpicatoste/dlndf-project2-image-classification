@@ -3,6 +3,8 @@ import tensorflow as tf
 import pickle
 import problem_unittests as tests
 import helper
+import time
+from datetime import timedelta
 
 
 
@@ -55,10 +57,10 @@ def conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ks
     shape = [conv_ksize[0], conv_ksize[1], input_channels , conv_num_outputs]
 
     # Create new weights aka. filters with the given shape.
-    weights = tf.Variable( tf.truncated_normal(shape, stddev = 0.05) )
+    weights = tf.Variable( tf.truncated_normal(shape, stddev = 0.05), name = 'weights' )
 
     # Create new biases, one for each filter.
-    biases = tf.Variable( tf.constant(0.05, shape = [conv_num_outputs]) )
+    biases = tf.Variable( tf.constant(0.05, shape = [conv_num_outputs]), name = 'biases' )
 
     # Create the TensorFlow operation for convolution.
     layer = tf.nn.conv2d(input = x_tensor,
@@ -125,8 +127,8 @@ def fully_conn(x_tensor, num_outputs):
 
     # Create new weights and biases.
     num_inputs = x_tensor.shape[1].value
-    weights = tf.Variable( tf.truncated_normal([num_inputs, num_outputs], stddev = 0.05) )
-    biases = tf.Variable( tf.constant(0.05, shape = [num_outputs]) )
+    weights = tf.Variable( tf.truncated_normal([num_inputs, num_outputs], stddev = 0.05), name = 'weights' )
+    biases = tf.Variable( tf.constant(0.05, shape = [num_outputs]), name = 'biases' )
     
     # Calculate the layer as the matrix multiplication of
     # the input and weights, and then add the bias-values.
@@ -144,16 +146,7 @@ def output(x_tensor, num_outputs):
     : num_outputs: The number of output that the new tensor should be.
     : return: A 2-D tensor where the second dimension is num_outputs.
     """
-        # Create new weights and biases.
-    num_inputs = x_tensor.shape[1].value
-    weights = tf.Variable( tf.truncated_normal([num_inputs, num_outputs], stddev = 0.05) )
-    biases = tf.Variable( tf.constant(0.05, shape = [num_outputs]) )
-    
-    # Calculate the layer as the matrix multiplication of
-    # the input and weights, and then add the bias-values.
-    layer = tf.matmul(x_tensor, weights) + biases
-
-    return layer
+    return fully_conn(x_tensor, num_outputs)
 
 
 tests.test_output(output)
@@ -169,16 +162,17 @@ def conv_net(x, keep_prob):
     # Apply 1, 2, or 3 Convolution and Max Pool layers
     #    Play around with different number of outputs, kernel size and stride
     #    conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ksize, pool_strides)
-    conv_1 =    conv2d_maxpool(x,       12,         [3,3],      [2,2],          [1,1],      [1,1])
-    conv_last = conv2d_maxpool(conv_1,  24,         [3,3],      [2,2],          [2,2],      [1,1])
+    conv_1 =    conv2d_maxpool(x,       32,         [3,3],      [1,1],          [1,1],      [1,1])
+    conv_2 =    conv2d_maxpool(conv_1,  64,         [3,3],      [1,1],          [2,2],      [1,1])
+    conv_last = conv2d_maxpool(conv_2,  128,        [5,5],      [2,2],          [2,2],      [1,1])
 
     # Apply a Flatten Layer
     x_flat = flatten( conv_last )
 
     # Apply 1, 2, or 3 Fully Connected Layers
     # Play around with different number of outputs
-    full_1 =    fully_conn(x_flat, 128)
-    full_last = fully_conn(full_1, 64)
+#    full_1 =    fully_conn(x_flat, 128)
+    full_last = fully_conn(x_flat, 64)
     
     # Apply an Output Layer
     # Set this to the number of classes
@@ -269,18 +263,28 @@ with tf.Session() as sess:
     # Initializing the variables
     sess.run(tf.global_variables_initializer())
     
+    start_time = time.time()
+    
     # Training cycle
     for epoch in range(epochs):
+        start_time_batch = time.time()
         batch_i = 1
         for batch_features, batch_labels in helper.load_preprocess_training_batch(batch_i, batch_size):
             train_neural_network(sess, optimizer, keep_probability, batch_features, batch_labels)
-        print('Epoch {:>2}, CIFAR-10 Batch {}:  '.format(epoch + 1, batch_i), end='')
-        print_stats(sess, batch_features, batch_labels, cost, accuracy)
+            
+        end_time_batch = time.time()
+        time_dif = str(timedelta(seconds = int(round(end_time_batch - start_time_batch))))
+        print('Epoch {:>2}, time  {} sec, CIFAR-10 Batch {}:  '.format(epoch + 1, time_dif, batch_i), end='')
+        print_stats(sess, batch_features, batch_labels, cost, accuracy)        
 
+    # Print the time-usage.
+    end_time = time.time()
+    time_dif = end_time - start_time
+    print("Time usage: " + str(timedelta(seconds = int(round(time_dif)))))
 
 #%% Run in all the batches
 
-save_model_path = './saved_progress/saved_progress'
+save_model_path = './training_progress/saved_progress'
 
 print('Training...')
 with tf.Session() as sess:
@@ -300,3 +304,87 @@ with tf.Session() as sess:
     # Save Model
     saver = tf.train.Saver()
     save_path = saver.save(sess, save_model_path)
+
+#%% Continue a training
+if 0:
+    #%%
+    save_model_path = './training_progress/saved_progress'
+    
+    print('Continue a started training...')
+    with tf.Session() as sess:
+        # Initializing the variables
+        saver.restore(sess, save_model_path)
+        
+        # Training cycle
+        for epoch in range(epochs):
+            # Loop over all batches
+            n_batches = 5
+            for batch_i in range(1, n_batches + 1):
+                for batch_features, batch_labels in helper.load_preprocess_training_batch(batch_i, batch_size):
+                    train_neural_network(sess, optimizer, keep_probability, batch_features, batch_labels)
+                print('Epoch {:>2}, CIFAR-10 Batch {}:  '.format(epoch + 1, batch_i), end='')
+                print_stats(sess, batch_features, batch_labels, cost, accuracy)
+                
+        # Save Model
+        saver = tf.train.Saver()
+        save_path = saver.save(sess, save_model_path)
+    
+#%% Test the model
+
+import tensorflow as tf
+import pickle
+import helper
+import random
+
+# Set batch size if not already set
+try:
+    if batch_size:
+        pass
+except NameError:
+    batch_size = 64
+
+save_model_path = './training_progress/saved_progress'
+n_samples = 4
+top_n_predictions = 3
+
+def test_model():
+    """
+    Test the saved model against the test dataset
+    """
+
+    test_features, test_labels = pickle.load(open('.\cifar-10-batches-py\preprocess_training.p', mode='rb'))
+    loaded_graph = tf.Graph()
+
+    with tf.Session(graph=loaded_graph) as sess:
+        # Load model
+        loader = tf.train.import_meta_graph(save_model_path + '.meta')
+        loader.restore(sess, save_model_path)
+
+        # Get Tensors from loaded model
+        loaded_x = loaded_graph.get_tensor_by_name('x:0')
+        loaded_y = loaded_graph.get_tensor_by_name('y:0')
+        loaded_keep_prob = loaded_graph.get_tensor_by_name('keep_prob:0')
+        loaded_logits = loaded_graph.get_tensor_by_name('logits:0')
+        loaded_acc = loaded_graph.get_tensor_by_name('accuracy:0')
+        
+        # Get accuracy in batches for memory limitations
+        test_batch_acc_total = 0
+        test_batch_count = 0
+        
+        for train_feature_batch, train_label_batch in helper.batch_features_labels(test_features, test_labels, batch_size):
+            test_batch_acc_total += sess.run(
+                loaded_acc,
+                feed_dict={loaded_x: train_feature_batch, loaded_y: train_label_batch, loaded_keep_prob: 1.0})
+            test_batch_count += 1
+
+        print('Testing Accuracy: {:.1%}\n'.format(test_batch_acc_total/test_batch_count))
+
+        # Print Random Samples
+        random_test_features, random_test_labels = tuple(zip(*random.sample(list(zip(test_features, test_labels)), n_samples)))
+        random_test_predictions = sess.run(
+            tf.nn.top_k(tf.nn.softmax(loaded_logits), top_n_predictions),
+            feed_dict={loaded_x: random_test_features, loaded_y: random_test_labels, loaded_keep_prob: 1.0})
+        helper.display_image_predictions(random_test_features, random_test_labels, random_test_predictions)
+
+
+test_model()

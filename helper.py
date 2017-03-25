@@ -97,7 +97,7 @@ def preprocess_and_save_data(cifar10_dataset_folder_path, normalize, one_hot_enc
         one_hot_encode,
         np.array(valid_features),
         np.array(valid_labels),
-        'preprocess_validation.p')
+        '.\cifar-10-batches-py\preprocess_validation.p')
 
     with open(cifar10_dataset_folder_path + '/test_batch', mode='rb') as file:
         batch = pickle.load(file, encoding='latin1')
@@ -112,7 +112,7 @@ def preprocess_and_save_data(cifar10_dataset_folder_path, normalize, one_hot_enc
         one_hot_encode,
         np.array(test_features),
         np.array(test_labels),
-        'preprocess_training.p')
+        '.\cifar-10-batches-py\preprocess_training.p')
 
 
 def batch_features_labels(features, labels, batch_size):
