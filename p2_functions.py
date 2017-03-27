@@ -106,7 +106,6 @@ def conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ks
     # Add the biases to the results of the convolution.
     # A bias-value is added to each filter-channel.
     layer = tf.nn.bias_add(layer, biases)
-#    layer += biases
 
     # Pooling
     layer = tf.nn.max_pool(value = layer,
