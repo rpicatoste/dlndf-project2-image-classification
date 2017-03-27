@@ -184,7 +184,7 @@ def test_conv_net(conv_net):
     print('Neural Network Built!')
 
 
-def test_train_nn(train_neural_network):
+def test_train_nn(train_neural_network, x, y, keep_prob):
     mock_session = tf.Session()
     test_x = np.random.rand(128, 32, 32, 3)
     test_y = np.random.rand(128, 10)
@@ -192,7 +192,7 @@ def test_train_nn(train_neural_network):
     test_optimizer = tf.train.AdamOptimizer()
 
     mock_session.run = MagicMock()
-    train_neural_network(mock_session, test_optimizer, test_k, test_x, test_y)
+    train_neural_network(mock_session, test_optimizer, test_k, test_x, test_y, x, y, keep_prob)
 
     assert mock_session.run.called, 'Session not used'
 
