@@ -198,11 +198,8 @@ def conv_net(x, keep_prob):
     #    Play around with different number of outputs, kernel size and stride
     #    conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ksize, pool_strides)
     conv_1 =    conv2d_maxpool(x,       16,         [3,3],      [1,1],          [1,1],      [1,1])
-    conv_1 =    tf.nn.dropout( conv_1, keep_prob )
     conv_2 =    conv2d_maxpool(conv_1,  32,         [3,3],      [1,1],          [2,2],      [2,2])
-    conv_2 =    tf.nn.dropout( conv_2, keep_prob )
     conv_last = conv2d_maxpool(conv_2,  64,         [5,5],      [2,2],          [2,2],      [2,2])
-    conv_last = tf.nn.dropout( conv_last, keep_prob )
     # Apply a Flatten Layer
     x_flat = flatten( conv_last )
 
@@ -210,12 +207,10 @@ def conv_net(x, keep_prob):
     # Play around with different number of outputs
     full_1 =    fully_conn(x_flat, 256)
     full_1 =    tf.nn.dropout( full_1, keep_prob )
-    full_last = fully_conn( full_1, 64)
+    full_2 =    fully_conn(full_1, 128)
+    full_2 =    tf.nn.dropout( full_2, keep_prob )
+    full_last = fully_conn( full_2, 64)
     full_last = tf.nn.dropout( full_last, keep_prob )
-
-#    full_last = fully_conn( x_flat, 256)
-#    full_last = tf.nn.dropout( full_last, keep_prob )
-    
     
     # Apply an Output Layer
     # Set this to the number of classes
@@ -239,7 +234,7 @@ def train_neural_network_once(session, optimizer, keep_probability, feature_batc
     dict_feed_train = { x: feature_batch, y: label_batch, keep_prob: keep_probability }
     session.run(optimizer, feed_dict = dict_feed_train)
     
-def print_stats(session, feature_batch, label_batch, cost, accuracy, x, y, keep_prob):
+def print_stats(session, feature_batch, label_batch, batch_size, cost, accuracy, x, y, keep_prob):
     """
     Print information about loss and validation accuracy
     : session: Current TensorFlow session
@@ -248,16 +243,33 @@ def print_stats(session, feature_batch, label_batch, cost, accuracy, x, y, keep_
     : cost: TensorFlow cost function
     : accuracy: TensorFlow accuracy function
     """
-    feed_dict_fwd = { x: feature_batch, y: label_batch, keep_prob: 1.0 }
-    
-    
-    cost = session.run(cost, feed_dict = feed_dict_fwd)
-    acc = session.run(accuracy, feed_dict = feed_dict_fwd)
-    
-    print('Cost: {:05.4}, Acc: {:.1%}'.format(cost, acc) )
+    if  batch_size >= len(feature_batch):
+        feed_dict_fwd = { x: feature_batch, y: label_batch, keep_prob: 1.0 }
+        
+        cost = session.run(cost, feed_dict = feed_dict_fwd)
+        acc = session.run(accuracy, feed_dict = feed_dict_fwd)
+    else:
+        # Get accuracy in batches for memory limitations
+        test_batch_acc_total = 0
+        test_batch_cost_total = 0
+        test_batch_count = 0
+        
+        for feature_batch, label_batch in helper.batch_features_labels(feature_batch, label_batch, batch_size):
+            feed_dict_fwd = {x: feature_batch, y: label_batch, keep_prob: 1.0}
+            test_batch_cost_total += session.run( cost,feed_dict = feed_dict_fwd)
+            test_batch_acc_total += session.run( accuracy,feed_dict = feed_dict_fwd)
+            test_batch_count += 1
+        acc = test_batch_acc_total / test_batch_count
+        cost = test_batch_cost_total / test_batch_count
+        
+    return 'Cost: {:05.4}, Acc: {:.1%}'.format(cost, acc)
 
 
-def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob, keep_probability, n_batches, batch_size, shuffle_data, epochs, load_data = False, file_path = './training_progress/saved_progress'):
+def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
+                              keep_probability, 
+                              n_batches, batch_size, shuffle_data, 
+                              valid_features, valid_labels,
+                              epochs, load_data = False, file_path = './training_progress/saved_progress'):
     
     saver = tf.train.Saver()
     with tf.Session() as sess:
@@ -283,9 +295,14 @@ def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob, keep_p
                     
                 end_time_batch = time.time()
                 time_dif = str(timedelta(seconds = int(round(end_time_batch - start_time_batch))))
-                print('Epoch {:>2}, time  {} sec, CIFAR-10 Batch {}:  '.format(epoch + 1, time_dif, batch_i), end='')
-                print_stats(sess, batch_features, batch_labels, cost, accuracy, x, y, keep_prob)        
-    
+                aux_text = print_stats(sess, batch_features, batch_labels, batch_size, cost, accuracy, x, y, keep_prob)                  
+                print('Epoch {:>2}, time  {} sec, CIFAR-10 Batch {} - Training {}'.format(epoch + 1, time_dif, batch_i, aux_text))
+                
+            # Each epoch print validation cost and accuracy (more samples to run it, so I don´t do it each batch.)
+            aux_text = print_stats(sess, valid_features, valid_labels, batch_size, cost, accuracy, x, y, keep_prob)    
+            print('Epoch {:>2} Finished - Validation {}'.format( epoch + 1, aux_text ))            
+            
+            
         # Print the time-usage.
         end_time = time.time()
         time_dif = end_time - start_time

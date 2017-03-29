@@ -10,6 +10,7 @@ from p2_functions import *#neural_net_image_input, neural_net_label_input, neura
 # Load the Preprocessed Validation data
 valid_features, valid_labels = pickle.load( open('.\cifar-10-batches-py\preprocess_validation.p', mode='rb') )
 
+#%%
 # Build the Neural Network
 # Remove previous weights, bias, inputs, etc..
 tf.reset_default_graph()
@@ -36,6 +37,11 @@ accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='accuracy')
 tests.test_conv_net(conv_net)
 tests.test_train_nn(train_neural_network_once, x, y, keep_prob)
 
+import os
+directory = 'training_progress'
+if not os.path.exists(directory):
+    os.makedirs(directory)
+	
 #%% Tune Parameters and run in a single batch of the data
 epochs = 2
 batch_size = 64*4
@@ -44,20 +50,27 @@ keep_probability = 1.0
 print('Checking the Training on a Single Batch...')
 n_batches = 1
 shuffle_data = True
-
-train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob, keep_probability, n_batches, batch_size, shuffle_data, epochs)
-
+                            
+train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
+                          keep_probability, 
+                          n_batches, batch_size, shuffle_data, 
+                          valid_features, valid_labels,
+                          epochs)
 
 #%% Run in all the batches
 
 save_model_path = './training_progress/saved_progress'
-epochs = 2
+epochs = 10
 batch_size = 64*4
 keep_probability = 1.0
 n_batches = 5
 shuffle_data = True
-train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob, keep_probability, n_batches, batch_size, shuffle_data, epochs, False, save_model_path)
 
+train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
+                          keep_probability, 
+                          n_batches, batch_size, shuffle_data, 
+                          valid_features, valid_labels,
+                          epochs, load_data = False, file_path = save_model_path)
 
 
 #%% Continue a training
@@ -65,13 +78,17 @@ if 0:
     #%%
     
     save_model_path = './training_progress/saved_progress'
-    epochs = 2
+    epochs = 10
     batch_size = 64*4
     keep_probability = 1.0
     n_batches = 5
     shuffle_data = True
-    train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob, keep_probability, n_batches, batch_size, shuffle_data, epochs, load_data = True, file_path = save_model_path)
-
+    
+    train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
+                              keep_probability, 
+                              n_batches, batch_size, shuffle_data, 
+                              valid_features, valid_labels,
+                              epochs, load_data = True, file_path = save_model_path)
         
     
 #%% Test the model

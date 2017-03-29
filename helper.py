@@ -123,6 +123,7 @@ def batch_features_labels(features, labels, batch_size):
         end = min(start + batch_size, len(features))
         yield features[start:end], labels[start:end]
 
+
 from sklearn.utils import shuffle
 def load_preprocess_training_batch(batch_id, batch_size, shuffle_data = False):
     """
