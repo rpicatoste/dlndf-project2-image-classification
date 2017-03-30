@@ -152,7 +152,7 @@ def flatten( x_tensor ):
 
 tests.test_flatten(flatten)
 
-def fully_conn(x_tensor, num_outputs):
+def fully_conn(x_tensor, num_outputs, non_linear_activation = True):
     """
     Apply a fully connected layer to x_tensor using weight and bias
     : x_tensor: A 2-D tensor where the first dimension is batch size.
@@ -168,6 +168,10 @@ def fully_conn(x_tensor, num_outputs):
     # Calculate the layer as the matrix multiplication of
     # the input and weights, and then add the bias-values.
     layer = tf.matmul(x_tensor, weights) + biases
+    
+    # Non linear activation
+    if non_linear_activation:
+        layer = tf.nn.relu( layer )
 
     return layer
 
@@ -181,13 +185,14 @@ def output(x_tensor, num_outputs):
     : num_outputs: The number of output that the new tensor should be.
     : return: A 2-D tensor where the second dimension is num_outputs.
     """
-    return fully_conn(x_tensor, num_outputs)
+    # The layer is a fully connected one without the non-linear activation.
+    return fully_conn(x_tensor, num_outputs, non_linear_activation = False)
 
 
 tests.test_output(output)
 
 
-def conv_net(x, keep_prob):
+def conv_net(x, keep_prob, train_phase):
     """
     Create a convolutional neural network model
     : x: Placeholder tensor that holds image data.
@@ -198,18 +203,24 @@ def conv_net(x, keep_prob):
     #    Play around with different number of outputs, kernel size and stride
     #    conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ksize, pool_strides)
     conv_1 =    conv2d_maxpool(x,       16,         [3,3],      [1,1],          [1,1],      [1,1])
+    conv_1 =    tf.contrib.layers.batch_norm( conv_1, is_training = True)#train_phase)
     conv_2 =    conv2d_maxpool(conv_1,  32,         [3,3],      [1,1],          [2,2],      [2,2])
+    conv_2 =    tf.contrib.layers.batch_norm( conv_2, is_training = True)#train_phase)
     conv_last = conv2d_maxpool(conv_2,  64,         [5,5],      [2,2],          [2,2],      [2,2])
+    conv_last =    tf.contrib.layers.batch_norm( conv_last, is_training = True)#train_phase)
     # Apply a Flatten Layer
     x_flat = flatten( conv_last )
 
     # Apply 1, 2, or 3 Fully Connected Layers
     # Play around with different number of outputs
     full_1 =    fully_conn(x_flat, 256)
+    full_1 =    tf.contrib.layers.batch_norm( full_1, is_training = True)#train_phase)
     full_1 =    tf.nn.dropout( full_1, keep_prob )
     full_2 =    fully_conn(full_1, 128)
+    full_2 =    tf.contrib.layers.batch_norm( full_2, is_training = True)#train_phase)
     full_2 =    tf.nn.dropout( full_2, keep_prob )
     full_last = fully_conn( full_2, 64)
+    full_last =    tf.contrib.layers.batch_norm( full_last, is_training = True)#train_phase)
     full_last = tf.nn.dropout( full_last, keep_prob )
     
     # Apply an Output Layer
@@ -221,7 +232,7 @@ def conv_net(x, keep_prob):
 
 
 # Train once
-def train_neural_network_once(session, optimizer, keep_probability, feature_batch, label_batch, x, y, keep_prob):
+def train_neural_network_once(session, optimizer, keep_probability, feature_batch, label_batch, x, y, keep_prob, train_phase):
     """
     Optimize the session on a batch of images and labels
     : session: Current TensorFlow session
@@ -231,10 +242,10 @@ def train_neural_network_once(session, optimizer, keep_probability, feature_batc
     : label_batch: Batch of Numpy label data
     """
     
-    dict_feed_train = { x: feature_batch, y: label_batch, keep_prob: keep_probability }
+    dict_feed_train = { x: feature_batch, y: label_batch, keep_prob: keep_probability, train_phase: True }
     session.run(optimizer, feed_dict = dict_feed_train)
     
-def print_stats(session, feature_batch, label_batch, batch_size, cost, accuracy, x, y, keep_prob):
+def print_stats(session, feature_batch, label_batch, batch_size, cost, accuracy, x, y, keep_prob, train_phase):
     """
     Print information about loss and validation accuracy
     : session: Current TensorFlow session
@@ -243,31 +254,28 @@ def print_stats(session, feature_batch, label_batch, batch_size, cost, accuracy,
     : cost: TensorFlow cost function
     : accuracy: TensorFlow accuracy function
     """
-    if  batch_size >= len(feature_batch):
-        feed_dict_fwd = { x: feature_batch, y: label_batch, keep_prob: 1.0 }
-        
-        cost = session.run(cost, feed_dict = feed_dict_fwd)
-        acc = session.run(accuracy, feed_dict = feed_dict_fwd)
-    else:
-        # Get accuracy in batches for memory limitations
-        test_batch_acc_total = 0
-        test_batch_cost_total = 0
-        test_batch_count = 0
-        
-        for feature_batch, label_batch in helper.batch_features_labels(feature_batch, label_batch, batch_size):
-            feed_dict_fwd = {x: feature_batch, y: label_batch, keep_prob: 1.0}
-            test_batch_cost_total += session.run( cost,feed_dict = feed_dict_fwd)
-            test_batch_acc_total += session.run( accuracy,feed_dict = feed_dict_fwd)
-            test_batch_count += 1
-        acc = test_batch_acc_total / test_batch_count
-        cost = test_batch_cost_total / test_batch_count
+
+    # Get accuracy in batches for memory limitations. If batch_size is not big, like when checking
+    # the training stats, the for loop below will run just once. But when the validation stats are
+    # required the batch_size is big and must be checked in parts.
+    test_batch_acc_total = 0
+    test_batch_cost_total = 0
+    test_batch_count = 0
+    
+    for feature_batch, label_batch in helper.batch_features_labels(feature_batch, label_batch, batch_size):
+        feed_dict_fwd = {x: feature_batch, y: label_batch, keep_prob: 1.0, train_phase: False}
+        test_batch_cost_total += session.run( cost,feed_dict = feed_dict_fwd)
+        test_batch_acc_total += session.run( accuracy,feed_dict = feed_dict_fwd)
+        test_batch_count += 1
+    acc = test_batch_acc_total / test_batch_count
+    cost = test_batch_cost_total / test_batch_count
         
     return 'Cost: {:05.4}, Acc: {:.1%}'.format(cost, acc)
 
 
 def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
                               keep_probability, 
-                              n_batches, batch_size, shuffle_data, 
+                              n_batches, batch_size, shuffle_data, train_phase, 
                               valid_features, valid_labels,
                               epochs, load_data = False, file_path = './training_progress/saved_progress'):
     
@@ -291,15 +299,15 @@ def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
                 
                 for batch_features, batch_labels in helper.load_preprocess_training_batch(batch_i, batch_size, shuffle_data = True):
                     
-                    train_neural_network_once(sess, optimizer, keep_probability, batch_features, batch_labels, x, y, keep_prob)
+                    train_neural_network_once(sess, optimizer, keep_probability, batch_features, batch_labels, x, y, keep_prob, train_phase)
                     
                 end_time_batch = time.time()
                 time_dif = str(timedelta(seconds = int(round(end_time_batch - start_time_batch))))
-                aux_text = print_stats(sess, batch_features, batch_labels, batch_size, cost, accuracy, x, y, keep_prob)                  
+                aux_text = print_stats(sess, batch_features, batch_labels, batch_size, cost, accuracy, x, y, keep_prob, train_phase)                  
                 print('Epoch {:>2}, time  {} sec, CIFAR-10 Batch {} - Training {}'.format(epoch + 1, time_dif, batch_i, aux_text))
                 
             # Each epoch print validation cost and accuracy (more samples to run it, so I don´t do it each batch.)
-            aux_text = print_stats(sess, valid_features, valid_labels, batch_size, cost, accuracy, x, y, keep_prob)    
+            aux_text = print_stats(sess, valid_features, valid_labels, batch_size, cost, accuracy, x, y, keep_prob, train_phase)     
             print('Epoch {:>2} Finished - Validation {}'.format( epoch + 1, aux_text ))            
             
             
@@ -311,4 +319,54 @@ def train_neural_network_full(optimizer, cost, accuracy, x, y, keep_prob,
         save_path = saver.save(sess, file_path)
  
         
+
+
+
+
+import pickle
+import random
+
+def test_model(batch_size, save_model_path = './training_progress/saved_progress'):
+    """
+    Test the saved model against the test dataset
+    """
+    n_samples = 4
+    top_n_predictions = 3
+    
+    test_features, test_labels = pickle.load(open('.\cifar-10-batches-py\preprocess_training.p', mode='rb'))
+    loaded_graph = tf.Graph()
+
+    with tf.Session(graph=loaded_graph) as sess:
+        # Load model
+        loader = tf.train.import_meta_graph(save_model_path + '.meta')
+        loader.restore(sess, save_model_path)
+
+        # Get Tensors from loaded model
+        loaded_x = loaded_graph.get_tensor_by_name('x:0')
+        loaded_y = loaded_graph.get_tensor_by_name('y:0')
+        loaded_keep_prob = loaded_graph.get_tensor_by_name('keep_prob:0')
+        loaded_logits = loaded_graph.get_tensor_by_name('logits:0')
+        loaded_acc = loaded_graph.get_tensor_by_name('accuracy:0')
+        loaded_train_phase = loaded_graph.get_tensor_by_name('train_phase:0')
+        
+        # Get accuracy in batches for memory limitations
+        test_batch_acc_total = 0
+        test_batch_count = 0
+        
+        for train_feature_batch, train_label_batch in helper.batch_features_labels(test_features, test_labels, batch_size):
+            test_batch_acc_total += sess.run(
+                loaded_acc,
+                feed_dict={loaded_x: train_feature_batch, loaded_y: train_label_batch, loaded_keep_prob: 1.0, loaded_train_phase: False})
+            test_batch_count += 1
+
+        print('Testing Accuracy: {:.1%}\n'.format(test_batch_acc_total/test_batch_count))
+
+        # Print Random Samples
+        random_test_features, random_test_labels = tuple(zip(*random.sample(list(zip(test_features, test_labels)), n_samples)))
+        random_test_predictions = sess.run(
+            tf.nn.top_k(tf.nn.softmax(loaded_logits), top_n_predictions),
+            feed_dict={loaded_x: random_test_features, loaded_y: random_test_labels, loaded_keep_prob: 1.0, loaded_train_phase: False})
+        helper.display_image_predictions(random_test_features, random_test_labels, random_test_predictions)
+
+
         

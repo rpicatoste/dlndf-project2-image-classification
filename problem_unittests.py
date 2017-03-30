@@ -175,8 +175,9 @@ def test_output(output):
 def test_conv_net(conv_net):
     test_x = tf.placeholder(tf.float32, [None, 32, 32, 3])
     test_k = tf.placeholder(tf.float32)
+    test_phase = tf.placeholder(tf.bool)
 
-    logits_out = conv_net(test_x, test_k)
+    logits_out = conv_net(test_x, test_k, test_phase)
 
     assert logits_out.get_shape().as_list() == [None, 10],\
         'Incorrect Model Output.  Found {}'.format(logits_out.get_shape().as_list())
@@ -188,11 +189,12 @@ def test_train_nn(train_neural_network, x, y, keep_prob):
     mock_session = tf.Session()
     test_x = np.random.rand(128, 32, 32, 3)
     test_y = np.random.rand(128, 10)
+    test_phase = tf.placeholder(tf.bool)
     test_k = np.random.rand(1)
     test_optimizer = tf.train.AdamOptimizer()
 
     mock_session.run = MagicMock()
-    train_neural_network(mock_session, test_optimizer, test_k, test_x, test_y, x, y, keep_prob)
+    train_neural_network(mock_session, test_optimizer, test_k, test_x, test_y, x, y, keep_prob, train_phase = test_phase)
 
     assert mock_session.run.called, 'Session not used'
 
