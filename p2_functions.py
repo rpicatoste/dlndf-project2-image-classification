@@ -106,15 +106,15 @@ def conv2d_maxpool(x_tensor, conv_num_outputs, conv_ksize, conv_strides, pool_ks
     # Add the biases to the results of the convolution.
     # A bias-value is added to each filter-channel.
     layer = tf.nn.bias_add(layer, biases)
-
+    
+    # Rectified Linear Unit (ReLU).
+    layer = tf.nn.relu( layer )
+    
     # Pooling
     layer = tf.nn.max_pool(value = layer,
                            ksize = [1, pool_ksize[0], pool_ksize[1], 1],
                            strides = [1, pool_strides[0], pool_strides[1], 1],
                            padding = 'SAME')
-
-    # Rectified Linear Unit (ReLU).
-    layer = tf.nn.relu(layer)
 
     # We return both the resulting layer and the filter-weights
     # because we will plot the weights later.

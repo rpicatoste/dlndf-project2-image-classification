@@ -46,7 +46,7 @@ if not os.path.exists(directory):
 #%% Tune Parameters and run in a single batch of the data
 epochs = 1
 batch_size = 64*4
-keep_probability = 0.5#1.0
+keep_probability = 0.5
 
 print('Checking the Training on a Single Batch...')
 n_batches = 1
@@ -84,7 +84,7 @@ if 0:
     save_model_path = './training_progress/saved_progress'
     epochs = 10
     batch_size = 64*4
-    keep_probability = 0.5#1.0
+    keep_probability = 0.5
     n_batches = 5
     shuffle_data = True
     
