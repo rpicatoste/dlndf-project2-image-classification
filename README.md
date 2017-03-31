@@ -28,3 +28,10 @@ I followed the next statement from Siraj's live session about this:
     # Note that ReLU is normally executed before the pooling,
     # but since relu(max_pool(x)) == max_pool(relu(x)) we can
     # save 75% of the relu-operations by max-pooling first.
+    
+    
+# Resubmission 3 notes
+
+The comment made by reviewer 3 was addressed but he/she missed the fact that I call print_stats with train values between batches to check training progress and with the global variables valid_features and valid_labels when each epoch is finished. This is noted in the "Resubmission 1 notes" of the README.md.
+
+NOTE: I don't use the python "global" word because I prefer to pass values as parameter in the function using it. 
