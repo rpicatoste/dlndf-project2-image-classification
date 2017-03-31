@@ -13,8 +13,8 @@ increasing your network), I only noticed that it get faster to a similar perform
 
 # Resubmission 1 notes
 
-I corrected the use of the function to print the stats, which was the most important in order to print the test performance. 
-I had also to update the function since the test data is much bigger than the batches used during training.
+I corrected the use of the function to print the stats, which was the most important in order to print the validation performance. 
+I had also to update the function since the validation data is much bigger than the batches used during training, and the function needs to split it internally.
 
 I started using properly the dropout, and also batch normalization as suggested. 
 
